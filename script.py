@@ -50,6 +50,7 @@ def get_new_port():
         port = input("Choose port to run SSH server on: [2222]: ")
         if port == "":
             port = 2222
+            return port
         else:
             try:
                 port = int(port)
@@ -218,6 +219,44 @@ def set_logging():
     config_content = re.sub(r'^\s*#?\s*LogLevel\s+\w+', 'LogLevel VERBOSE', config_content, flags=re.MULTILINE)
     write_file(CONFIG_FILE_PATH, config_content)
 
+def set_protocol():
+    config_content = read_file(CONFIG_FILE_PATH)
+    print('Disabling SSH-1...')
+    if 'Protocol 2' in config_content:
+        return
+
+
+    with open(CONFIG_FILE_PATH, 'a') as w:
+        w.write('Protocol 2\n')
+
+
+
+
+def set_maxauthtries():
+    config_content = read_file(CONFIG_FILE_PATH)
+  
+    while True:
+        max_tries = input("Enter max auth tries value: [3]: ")
+        if max_tries == "":
+            max_tries = 3
+            break
+        else:
+            try:
+                max_tries = int(max_tries)
+                if max_tries < 1:
+                    raise ValueError("bounds_error")
+                break
+            except ValueError as e:
+                if "invalid literal" in str(e):
+                    print("Invalid max tries number. Please enter a valid integer max tries number.")
+                if "bounds_error" in str(e):
+                    print('Max tries number must be 1 or more')
+
+
+    config_content = re.sub(r'^\s*#?\s*MaxAuthTries\s+\d+', f'MaxAuthTries {max_tries}', config_content, flags=re.MULTILINE)
+    write_file(CONFIG_FILE_PATH, config_content)
+    print(f'MaxAuthTries set to {max_tries}')
+
 
 def set_whitelist():
     valid_inputs = {'yes', 'no', 'y', 'n'}
@@ -278,7 +317,7 @@ def set_up_tarpit(ask):
         print("Endlessh is already installed and set up. Skipping tarpit setup. Run 'sudo systemctl stop endlessh && sudo rm /usr/local/bin/endlessh && sudo rm /etc/systemd/system/endlessh.service' to reinstall")
         return
 
-    if (ask):
+    if ask:
         allow_tarpit = ask_permission('Do you want to set up Endlessh? (y/n) [y]: ', True)
     else:
         allow_tarpit = True
@@ -394,12 +433,14 @@ def main():
         set_permit_root_login(ask=False)
         set_permit_password_login(ask=False)
         set_timeouts()
+        set_protocol()
         set_cryptography()
         set_logging()
+        set_maxauthtries()
         set_banner(ask=False)
         set_whitelist()
         set_up_tarpit(ask=False)
-        set_up_fail2ban(False, DEFAULT_PORT)
+        set_up_fail2ban(True, DEFAULT_PORT)
         subprocess.run(['sudo', 'systemctl', 'restart', 'ssh'])
 
     elif option == 2:
@@ -409,8 +450,10 @@ def main():
         set_permit_root_login(ask=True)
         set_permit_password_login(ask=True)
         set_timeouts()
+        set_protocol()
         set_cryptography()
         set_logging()
+        set_maxauthtries()
         set_banner(ask=True)
         set_whitelist()
         set_up_tarpit(ask=True)
